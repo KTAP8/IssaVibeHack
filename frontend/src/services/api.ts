@@ -32,6 +32,7 @@ export interface ImproveAiRequest {
 export interface ImproveAiResponse {
   predictedReply: string;
   updatedPrompt: string;
+  changeLog?: string;
 }
 
 export interface ManualUpdateRequest {
@@ -40,6 +41,12 @@ export interface ManualUpdateRequest {
 
 export interface ManualUpdateResponse {
   updatedPrompt: string;
+  changeLog?: string;
+}
+
+export interface RollbackResponse {
+    message: string;
+    activePrompt: string;
 }
 
 export const generateReply = async (data: GenerateReplyRequest) => {
@@ -55,6 +62,11 @@ export const improveAi = async (data: ImproveAiRequest) => {
 export const improveAiManually = async (data: ManualUpdateRequest) => {
   const response = await api.post<ManualUpdateResponse>('/improve-ai-manually', data);
   return response.data;
+};
+
+export const rollbackSystemPrompt = async (steps: number = 1) => {
+    const response = await api.post<RollbackResponse>('/rollback-system-prompt', { steps });
+    return response.data;
 };
 
 export default api;

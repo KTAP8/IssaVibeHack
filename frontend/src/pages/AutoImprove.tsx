@@ -4,9 +4,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import ChatHistoryInput from '@/components/ChatHistoryInput';
-import { improveAi } from '@/services/api';
+import { improveAi, rollbackSystemPrompt } from '@/services/api';
 import type { ChatMessage } from '@/services/api';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RotateCcw } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PageContainer from '@/components/PageContainer';
 
@@ -15,14 +15,17 @@ const AutoImprove = () => {
   const [consultantReply, setConsultantReply] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [rollbackLoading, setRollbackLoading] = useState(false);
   const [response, setResponse] = useState<any>(null);
   const [error, setError] = useState('');
+  const [rollbackMsg, setRollbackMsg] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setResponse(null);
+    setRollbackMsg('');
 
     try {
       const data = await improveAi({
@@ -36,6 +39,21 @@ const AutoImprove = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRollback = async () => {
+      setRollbackLoading(true);
+      setRollbackMsg('');
+      try {
+          const res = await rollbackSystemPrompt(1);
+          setRollbackMsg(res.message);
+          // Optionally update the displayed prompt to the rolled back one
+          setResponse({ ...response, updatedPrompt: res.activePrompt });
+      } catch (err: any) {
+          setError(err.message || 'Rollback failed');
+      } finally {
+          setRollbackLoading(false);
+      }
   };
 
   return (
@@ -106,12 +124,37 @@ const AutoImprove = () => {
                      </div>
                   </div>
 
+                  {response.changeLog && (
+                    <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Change Log</Label>
+                        <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded-md text-sm font-medium">
+                            {response.changeLog}
+                        </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Updated System Prompt</Label>
                     <ScrollArea className="h-[300px] w-full rounded-md border p-4 bg-muted/50 font-mono text-xs">
                         {response.updatedPrompt}
                     </ScrollArea>
                   </div>
+                  
+                  {rollbackMsg && (
+                      <div className="p-3 bg-green-500/10 border border-green-500/20 text-green-600 rounded-md text-sm">
+                          {rollbackMsg}
+                      </div>
+                  )}
+
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-destructive/50 text-destructive hover:bg-destructive/10"
+                    onClick={handleRollback}
+                    disabled={rollbackLoading}
+                  >
+                      {rollbackLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+                      Undo (Rollback 1 Version)
+                  </Button>
 
                   <div>
                     <Label className="text-xs text-muted-foreground mb-1">Full JSON Response</Label>
