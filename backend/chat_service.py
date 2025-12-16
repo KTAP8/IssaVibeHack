@@ -56,9 +56,10 @@ Then, rewrite the **Current System Prompt** to fix these specific issues.
 - **Fact Correction:** If the AI hallucinated or gave incorrect pricing/timelines, update the "Knowledge Base" with the correct data from the Human Reply.
 
 ### Output Format
-You must return a **single JSON object** containing the full, updated text of the new system prompt.
+You must return a **single JSON object** containing the updated prompt and a change log explaining the edits.
 {
-  "prompt": "FULL_UPDATED_SYSTEM_PROMPT_HERE"
+  "prompt": "FULL_UPDATED_SYSTEM_PROMPT_HERE",
+  "change_log": "Explanation of changes made (e.g., Added rule about Laos rejections based on human reply)."
 }
 """
 
@@ -72,9 +73,10 @@ You will be provided with:
 Rewrite the **Current System Prompt** to incorporate the **User Instructions** while maintaining the existing structure and critical rules.
 
 ### Output Format
-You must return a **single JSON object** containing the full, updated text of the new system prompt.
+You must return a **single JSON object** containing the updated prompt and a short change log.
 {
-  "prompt": "FULL_UPDATED_SYSTEM_PROMPT_HERE"
+  "prompt": "FULL_UPDATED_SYSTEM_PROMPT_HERE",
+  "change_log": "Implemented user request: Be more concise."
 }
 """
 
@@ -92,7 +94,12 @@ def get_system_prompt():
 
     try:
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        response = supabase.table("system_prompt").select("prompt").limit(1).execute()
+        # Fetch the single active row
+        response = supabase.table("system_prompt") \
+            .select("prompt") \
+            .eq("is_active", True) \
+            .limit(1) \
+            .execute()
         
         if response.data and len(response.data) > 0:
             row = response.data[0]
@@ -104,6 +111,116 @@ def get_system_prompt():
         print(f"Error fetching from Supabase: {e}")
     
     return DEFAULT_SYSTEM_PROMPT
+
+def get_max_version(supabase: Client) -> int:
+    try:
+        # We need to find the max version. 
+        # Supabase select order desc + limit 1 is efficient.
+        response = supabase.table("system_prompt") \
+            .select("version") \
+            .order("version", desc=True) \
+            .limit(1) \
+            .execute()
+        
+        if response.data and len(response.data) > 0:
+            return response.data[0].get("version", 0)
+        return 0
+    except Exception as e:
+        print(f"Error fetching max version: {e}")
+        return 0
+
+def save_new_prompt_version(new_text: str, reason: str) -> bool:
+    """
+    Inserts a new prompt version and sets it as active.
+    Deactivates all other rows first (or relies on triggers, but we'll do manual for safety).
+    """
+    global CACHED_SYSTEM_PROMPT
+    
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        print("Warning: Cannot update Supabase (missing credentials).")
+        return False
+        
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        
+        # 1. Get current max version
+        current_max = get_max_version(supabase)
+        new_version = current_max + 1
+        
+        now = datetime.now(timezone.utc).isoformat()
+        
+        # 2. Deactivate all rows (Batch update)
+        # Ideally this should be a transaction or RPC call to ensure atomicity.
+        # For now, we update all where is_active is true.
+        supabase.table("system_prompt").update({"is_active": False}).eq("is_active", True).execute()
+        
+        # 3. Insert new active row
+        insert_data = {
+            "prompt": new_text,
+            "version": new_version,
+            "is_active": True,
+            "change_log": reason,
+            "created_at": now
+        }
+        
+        insert_resp = supabase.table("system_prompt").insert(insert_data).execute()
+        
+        if insert_resp.data:
+            print(f"Successfully saved new prompt version {new_version}.")
+            CACHED_SYSTEM_PROMPT = new_text
+            return True
+        else:
+            print("Warning: Supabase insert returned no data.")
+            return False
+            
+    except Exception as e:
+        print(f"Error saving new prompt version: {e}")
+        return False
+
+def rollback_prompt(steps: int = 1) -> bool:
+    """
+    Rolls back the active prompt by `steps` versions.
+    """
+    global CACHED_SYSTEM_PROMPT
+    
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return False
+        
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        
+        # Find current active version
+        active_resp = supabase.table("system_prompt").select("version").eq("is_active", True).single().execute()
+        if not active_resp.data:
+            print("No active prompt found to rollback from.")
+            return False
+            
+        current_version = active_resp.data.get("version")
+        target_version = current_version - steps
+        
+        if target_version < 1:
+            print(f"Cannot rollback to version {target_version}. Minimum version is 1.")
+            return False
+            
+        # Verify target exists
+        target_resp = supabase.table("system_prompt").select("prompt").eq("version", target_version).single().execute()
+        if not target_resp.data:
+            print(f"Target version {target_version} does not exist.")
+            return False
+            
+        target_prompt = target_resp.data.get("prompt")
+        
+        # Perform Switch
+        supabase.table("system_prompt").update({"is_active": False}).eq("is_active", True).execute()
+        supabase.table("system_prompt").update({"is_active": True}).eq("version", target_version).execute()
+        
+        print(f"Successfully rolled back to version {target_version}.")
+        CACHED_SYSTEM_PROMPT = target_prompt
+        return True
+        
+    except Exception as e:
+        print(f"Error rolling back prompt: {e}")
+        return False
 
 import re
 
@@ -142,55 +259,6 @@ def extract_json(text_response):
         
     # If all else fails, return None or raw text wrapper
     return None
-
-def update_system_prompt(new_prompt):
-# ... (keep existing update_system_prompt)
-    global CACHED_SYSTEM_PROMPT
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        print("Warning: Cannot update Supabase (missing credentials).")
-        return False
-
-    try:
-        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        
-        # Current timestamp in ISO format (Supabase timestamptz compatible)
-        now = datetime.now(timezone.utc).isoformat()
-        
-        # Check if a row exists
-        response = supabase.table("system_prompt").select("id").limit(1).execute()
-        
-        if response.data and len(response.data) > 0:
-            row_id = response.data[0]['id']
-            update_resp = supabase.table("system_prompt").update({
-                "prompt": new_prompt,
-                "last_edited": now
-            }).eq("id", row_id).execute()
-            
-            # Verify update
-            if update_resp.data:
-                print(f"Successfully updated system prompt in Supabase (ID: {row_id}).")
-            else:
-                print("Warning: Supabase update returned no data. Check RLS policies.")
-                # Proceeding optimistically, but this is suspicious.
-                
-        else:
-            insert_resp = supabase.table("system_prompt").insert({
-                "prompt": new_prompt,
-                "last_edited": now
-            }).execute()
-            if insert_resp.data:
-                print("Successfully inserted new system prompt into Supabase.")
-            else:
-                print("Warning: Supabase insert returned no data.")
-
-        # Update cache regardless? No, only if we think it worked (or if we want local to assume it worked)
-        # Ideally we trust the DB. But for now, let's update cache to keep app responsive.
-        CACHED_SYSTEM_PROMPT = new_prompt
-        return True
-
-    except Exception as e:
-        print(f"Error updating Supabase: {e}")
-        return False
 
 def generate_with_fallback(full_prompt):
     """
@@ -286,9 +354,10 @@ def optimize_prompt(client_seq_text, chat_history, ai_reply, consultant_reply):
              return current_prompt
 
         new_prompt = result.get("prompt")
+        reason = result.get("change_log", "Automated optimization")
         
         if new_prompt and new_prompt != current_prompt:
-            update_system_prompt(new_prompt)
+            save_new_prompt_version(new_text=new_prompt, reason=reason)
             return new_prompt
         
         return current_prompt
@@ -326,9 +395,10 @@ def update_system_prompt_with_instructions(instructions):
              return current_prompt
              
         new_prompt = result.get("prompt")
+        reason = result.get("change_log", f"Manual update: {instructions}")
         
         if new_prompt and new_prompt != current_prompt:
-            update_system_prompt(new_prompt)
+            save_new_prompt_version(new_text=new_prompt, reason=reason)
             return new_prompt
         
         return current_prompt

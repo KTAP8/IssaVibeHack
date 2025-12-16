@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from chat_service import generate_reply, optimize_prompt, update_system_prompt_with_instructions, get_system_prompt
+from chat_service import generate_reply, optimize_prompt, update_system_prompt_with_instructions, get_system_prompt, rollback_prompt
 
 app = Flask(__name__)
 CORS(app)
@@ -103,6 +103,25 @@ def improve_ai_manually_endpoint():
     return jsonify({
         "updatedPrompt": updated_prompt
     })
+
+@app.route('/rollback-system-prompt', methods=['POST'])
+def rollback_endpoint():
+    data = request.json or {}
+    steps = data.get('steps', 1)
+    
+    try:
+        steps = int(steps)
+    except ValueError:
+        return jsonify({"error": "steps must be an integer"}), 400
+        
+    if rollback_prompt(steps):
+        current_prompt = get_system_prompt()
+        return jsonify({
+            "message": f"Successfully rolled back {steps} version(s).",
+            "activePrompt": current_prompt
+        })
+    else:
+        return jsonify({"error": "Rollback failed. Check server logs."}), 500
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True, host='0.0.0.0')
