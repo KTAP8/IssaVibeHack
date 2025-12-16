@@ -1,15 +1,21 @@
 import os
 import json
+import re
 import google.generativeai as genai
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, InternalServerError
 
 # Load environment variables
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_PUBLISHABLE_DEFAULT_KEY")
+
+# Models
+PRIMARY_MODEL_NAME = "gemini-2.5-flash"
+FALLBACK_MODEL_NAME = "gemini-2.5-flash-lite"
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
@@ -99,7 +105,46 @@ def get_system_prompt():
     
     return DEFAULT_SYSTEM_PROMPT
 
+import re
+
+# ... (existing imports, but keep the ones below)
+
+def extract_json(text_response):
+    """
+    Helper to robustly extract JSON from a response string.
+    """
+    try:
+        # First try simple JSON load
+        return json.loads(text_response)
+    except json.JSONDecodeError:
+        pass
+
+    # Clean up markdown code blocks if present
+    cleaned_text = text_response
+    if "```json" in cleaned_text:
+        cleaned_text = cleaned_text.split("```json")[1].split("```")[0].strip()
+    elif "```" in cleaned_text:
+        cleaned_text = cleaned_text.split("```")[1].split("```")[0].strip()
+
+    try:
+        return json.loads(cleaned_text)
+    except json.JSONDecodeError:
+        pass
+
+    # Try regex to find the first { and last }
+    try:
+        match = re.search(r'\{.*\}', text_response, re.DOTALL)
+        if match:
+            json_str = match.group(0)
+            return json.loads(json_str)
+    except json.JSONDecodeError:
+        pass
+        
+    # If all else fails, return None or raw text wrapper
+    return None
+
 def update_system_prompt(new_prompt):
+# ... (keep existing update_system_prompt)
     global CACHED_SYSTEM_PROMPT
     if not SUPABASE_URL or not SUPABASE_KEY:
         print("Warning: Cannot update Supabase (missing credentials).")
@@ -147,6 +192,26 @@ def update_system_prompt(new_prompt):
         print(f"Error updating Supabase: {e}")
         return False
 
+def generate_with_fallback(full_prompt):
+    """
+    Attempts to generate content with the primary model.
+    If it fails due to rate limits or errors, falls back to the lite model.
+    """
+    try:
+        model = genai.GenerativeModel(PRIMARY_MODEL_NAME)
+        return model.generate_content(full_prompt)
+    except (ResourceExhausted, ServiceUnavailable, InternalServerError) as e:
+        print(f"Primary model {PRIMARY_MODEL_NAME} failed: {e}. Falling back to {FALLBACK_MODEL_NAME}.")
+        try:
+            model = genai.GenerativeModel(FALLBACK_MODEL_NAME)
+            return model.generate_content(full_prompt)
+        except Exception as e2:
+            print(f"Fallback model {FALLBACK_MODEL_NAME} also failed: {e2}")
+            # Reraise or return None? Let's return the exception or re-raise
+            raise e2
+    except Exception as e:
+        print(f"Unexpected error with {PRIMARY_MODEL_NAME}: {e}")
+        raise e
 
 def generate_reply(client_message, chat_history):
     """
@@ -160,7 +225,6 @@ def generate_reply(client_message, chat_history):
         return "Error: API Key missing"
 
     system_prompt = get_system_prompt()
-    model = genai.GenerativeModel("gemini-flash-latest")
     
     prompt_input = {
         "chat_history": chat_history,
@@ -170,20 +234,14 @@ def generate_reply(client_message, chat_history):
     full_prompt = f"{system_prompt}\n\nInput:\n{json.dumps(prompt_input, indent=2)}"
     
     try:
-        response = model.generate_content(full_prompt)
+        response = generate_with_fallback(full_prompt)
         text_response = response.text
         
-        # Cleanup
-        if text_response.startswith("```json"):
-            text_response = text_response.strip("```json").strip("```")
-        elif text_response.startswith("```"):
-             text_response = text_response.strip("```")
-             
-        try:
-            response_json = json.loads(text_response)
-            return response_json.get("reply", text_response)
-        except json.JSONDecodeError:
-            return text_response
+        result = extract_json(text_response)
+        if result and isinstance(result, dict):
+            return result.get("reply", text_response)
+        else:
+             return text_response
 
     except Exception as e:
         return f"Error generating reply: {e}"
@@ -196,7 +254,6 @@ def optimize_prompt(client_seq_text, chat_history, ai_reply, consultant_reply):
         return None
 
     current_prompt = get_system_prompt()
-    model = genai.GenerativeModel("gemini-flash-latest")
 
     context_str = json.dumps({
         "client_messages": [client_seq_text],
@@ -220,16 +277,14 @@ def optimize_prompt(client_seq_text, chat_history, ai_reply, consultant_reply):
     full_editor_prompt = f"{EDITOR_PROMPT}\n\n{optimization_input}"
 
     try:
-        response = model.generate_content(full_editor_prompt)
+        response = generate_with_fallback(full_editor_prompt)
         text_resp = response.text
         
-        # Cleanup
-        if text_resp.startswith("```json"):
-            text_resp = text_resp.strip("```json").strip("```")
-        elif text_resp.startswith("```"):
-            text_resp = text_resp.strip("```")
-            
-        result = json.loads(text_resp)
+        result = extract_json(text_resp)
+        if not result:
+             # Fallback or log error
+             return current_prompt
+
         new_prompt = result.get("prompt")
         
         if new_prompt and new_prompt != current_prompt:
@@ -250,7 +305,6 @@ def update_system_prompt_with_instructions(instructions):
         return None
 
     current_prompt = get_system_prompt()
-    model = genai.GenerativeModel("gemini-flash-latest")
     
     input_text = f"""
 1. **Current System Prompt:**
@@ -263,16 +317,14 @@ def update_system_prompt_with_instructions(instructions):
     full_prompt = f"{MANUAL_EDITOR_PROMPT}\n\n{input_text}"
     
     try:
-        response = model.generate_content(full_prompt)
+        response = generate_with_fallback(full_prompt)
         text_resp = response.text
         
-        # Cleanup
-        if text_resp.startswith("```json"):
-            text_resp = text_resp.strip("```json").strip("```")
-        elif text_resp.startswith("```"):
-            text_resp = text_resp.strip("```")
-            
-        result = json.loads(text_resp)
+        result = extract_json(text_resp)
+        if not result:
+             print(f"Failed to parse JSON from AI response: {text_resp[:100]}...")
+             return current_prompt
+             
         new_prompt = result.get("prompt")
         
         if new_prompt and new_prompt != current_prompt:
