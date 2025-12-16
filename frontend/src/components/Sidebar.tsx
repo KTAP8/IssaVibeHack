@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Sparkles, Edit, Terminal, Plus, LogOut, Trash2 } from 'lucide-react';
+import { Sparkles, Edit, Terminal, Plus, LogOut, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -72,7 +72,7 @@ const Sidebar = () => {
       <div className="p-4 border-b">
         <div className="flex items-center gap-2 mb-4 px-2">
           <Terminal className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight">AI Optimiser</h1>
+          <h1 className="text-xl font-bold tracking-tight">Issa Chat & Optimizer</h1>
         </div>
         <Button onClick={handleNewChat} className="w-full justify-start" variant="outline">
           <Plus className="mr-2 h-4 w-4" />
@@ -87,17 +87,7 @@ const Sidebar = () => {
                 Tools
               </h2>
               <nav className="flex flex-col gap-1">
-                <NavLink to="/generate-reply" end>
-                  {({ isActive }) => (
-                    <Button 
-                      variant={isActive && !sessionId ? "secondary" : "ghost"} 
-                      className={cn("w-full justify-start", isActive && !sessionId && "bg-secondary")}
-                    >
-                      <MessageSquare className="mr-2 h-4 w-4" />
-                      Generate Reply
-                    </Button>
-                  )}
-                </NavLink>
+
 
                 <NavLink to="/improve-ai">
                   {({ isActive }) => (
