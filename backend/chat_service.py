@@ -132,7 +132,8 @@ def get_max_version(supabase: Client) -> int:
 def save_new_prompt_version(new_text: str, reason: str) -> bool:
     """
     Inserts a new prompt version and sets it as active.
-    Deactivates all other rows first (or relies on triggers, but we'll do manual for safety).
+    Deactivates all other rows first.
+    Sets 'parent_version' to the currently active version to support tree-based rollback.
     """
     global CACHED_SYSTEM_PROMPT
     
@@ -147,26 +148,31 @@ def save_new_prompt_version(new_text: str, reason: str) -> bool:
         current_max = get_max_version(supabase)
         new_version = current_max + 1
         
+        # 2. Identify the PARENT version (the currently active one)
+        parent_version = None
+        active_resp = supabase.table("system_prompt").select("version").eq("is_active", True).limit(1).execute()
+        if active_resp.data and len(active_resp.data) > 0:
+            parent_version = active_resp.data[0].get("version")
+        
         now = datetime.now(timezone.utc).isoformat()
         
-        # 2. Deactivate all rows (Batch update)
-        # Ideally this should be a transaction or RPC call to ensure atomicity.
-        # For now, we update all where is_active is true.
+        # 3. Deactivate all rows (Batch update)
         supabase.table("system_prompt").update({"is_active": False}).eq("is_active", True).execute()
         
-        # 3. Insert new active row
+        # 4. Insert new active row with parent_version
         insert_data = {
             "prompt": new_text,
             "version": new_version,
             "is_active": True,
             "change_log": reason,
-            "created_at": now
+            "created_at": now,
+            "parent_version": parent_version
         }
         
         insert_resp = supabase.table("system_prompt").insert(insert_data).execute()
         
         if insert_resp.data:
-            print(f"Successfully saved new prompt version {new_version}.")
+            print(f"Successfully saved new prompt version {new_version} (Parent: {parent_version}).")
             CACHED_SYSTEM_PROMPT = new_text
             return True
         else:
@@ -179,7 +185,9 @@ def save_new_prompt_version(new_text: str, reason: str) -> bool:
 
 def rollback_prompt(steps: int = 1) -> bool:
     """
-    Rolls back the active prompt by `steps` versions.
+    Rolls back the active prompt.
+    If 'parent_version' exists, it traverses back up the tree.
+    Otherwise, it falls back to linear decrement/steps mechanism if steps > 1 or no parent info.
     """
     global CACHED_SYSTEM_PROMPT
     
@@ -189,20 +197,35 @@ def rollback_prompt(steps: int = 1) -> bool:
     try:
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
         
-        # Find current active version
-        active_resp = supabase.table("system_prompt").select("version").eq("is_active", True).single().execute()
+        # 1. Find currently active version
+        # We need the 'parent_version' column now
+        active_resp = supabase.table("system_prompt").select("version", "parent_version").eq("is_active", True).single().execute()
         if not active_resp.data:
             print("No active prompt found to rollback from.")
             return False
             
-        current_version = active_resp.data.get("version")
-        target_version = current_version - steps
+        current_version_num = active_resp.data.get("version")
+        parent_version_num = active_resp.data.get("parent_version")
+        
+        target_version = None
+        
+        # LOGIC:
+        # If we just want to go back 1 step AND we have a parent_version, follow the tree.
+        if steps == 1 and parent_version_num is not None:
+            target_version = parent_version_num
+            print(f"Tree-based rollback: {current_version_num} -> {target_version}")
+        else:
+            # Fallback for >1 steps or missing parent data (legacy rows)
+            # This logic is approximate for >1 steps in a tree, traversing multiple parents would be better but complex.
+            # For this MVP, if steps > 1, we just subtract.
+            print(f"Linear/Legacy rollback: {current_version_num} - {steps}")
+            target_version = current_version_num - steps
         
         if target_version < 1:
             print(f"Cannot rollback to version {target_version}. Minimum version is 1.")
             return False
             
-        # Verify target exists
+        # 2. Verify target exists and fetch prompt
         target_resp = supabase.table("system_prompt").select("prompt").eq("version", target_version).single().execute()
         if not target_resp.data:
             print(f"Target version {target_version} does not exist.")
@@ -210,7 +233,7 @@ def rollback_prompt(steps: int = 1) -> bool:
             
         target_prompt = target_resp.data.get("prompt")
         
-        # Perform Switch
+        # 3. Perform Switch
         supabase.table("system_prompt").update({"is_active": False}).eq("is_active", True).execute()
         supabase.table("system_prompt").update({"is_active": True}).eq("version", target_version).execute()
         
