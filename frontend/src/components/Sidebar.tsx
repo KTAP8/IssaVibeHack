@@ -3,6 +3,7 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Edit, Terminal, Plus, LogOut, Trash2 } from 'lucide-react';
+import { ModeToggle } from '@/components/mode-toggle';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -165,6 +166,9 @@ const Sidebar = () => {
       </ScrollArea>
 
       <div className="p-4 border-t mt-auto">
+         <div className="px-2 mb-2">
+            <ModeToggle />
+         </div>
          <div className="px-2 mb-2">
             <p className="text-xs font-medium truncate text-muted-foreground">{user?.email}</p>
          </div>

@@ -234,7 +234,8 @@ const GenerateReply = () => {
       </div>
 
       {/* 2. Sticky Input Area */}
-      <div className="p-4 bg-background border-t">
+      <div className="p-4 bg-background relative z-20">
+        <div className="absolute left-0 right-0 bottom-full h-8 bg-gradient-to-t from-background to-transparent pointer-events-none" />
         <div className="max-w-4xl mx-auto relative flex items-end gap-2 p-2 border rounded-xl shadow-sm bg-card focus-within:ring-1 focus-within:ring-ring">
            <Textarea 
              value={clientSequence}
