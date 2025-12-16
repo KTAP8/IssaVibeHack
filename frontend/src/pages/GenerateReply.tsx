@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Button } from '@/components/ui/button';
 import { generateReply } from '@/services/api';
 import type { ChatMessage } from '@/services/api';
@@ -157,12 +159,28 @@ const GenerateReply = () => {
                 )}
 
                 <div className={cn(
-                    "rounded-lg px-4 py-2 max-w-[85%] md:max-w-[75%] shadow-sm text-sm whitespace-pre-wrap leading-relaxed",
+                    "rounded-lg px-4 py-2 max-w-[85%] md:max-w-[75%] shadow-sm text-sm leading-relaxed overflow-hidden",
                     msg.role === 'user' 
                         ? "bg-primary text-primary-foreground" 
-                        : "bg-muted text-muted-foreground border"
+                        : "bg-muted text-muted-foreground border prose prose-sm dark:prose-invert max-w-none break-words"
                 )}>
-                    {msg.message}
+                   {msg.role === 'user' ? (
+                      <div className="whitespace-pre-wrap">{msg.message}</div>
+                   ) : (
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                            p: ({children}: any) => <p className="mb-2 last:mb-0">{children}</p>,
+                            ul: ({children}: any) => <ul className="list-disc ml-4 mb-2 last:mb-0">{children}</ul>,
+                            ol: ({children}: any) => <ol className="list-decimal ml-4 mb-2 last:mb-0">{children}</ol>,
+                            li: ({children}: any) => <li className="mb-1">{children}</li>,
+                            strong: ({children}: any) => <span className="font-bold">{children}</span>,
+                            a: ({href, children}: any) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{children}</a>,
+                        }}
+                      >
+                        {msg.message}
+                      </ReactMarkdown>
+                   )}
                 </div>
 
                 {/* Avatar for User (Optional, visually simpler to just have bubble right aligned) */}
