@@ -10,13 +10,17 @@ A Flask-based AI Visa Consultant for the Destination Thailand Visa (DTV). This s
 
 ### 2. Installation
 1. Clone the repository.
-2. Install dependencies:
+2. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+3. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 
 ### 3. Environment Variables
-Create a `.env` file in the root directory with the following keys:
+Create a `.env` file in the `backend` directory with the following keys:
 ```env
 GEMINI_API_KEY=your_gemini_api_key
 SUPABASE_URL=your_supabase_url
@@ -32,9 +36,9 @@ Ensure your Supabase instance has a table named `system_prompt` with the columns
 
 ## Running the Server
 
-Start the Flask application:
+Start the Flask application from the `backend` directory:
 ```bash
-python3 app.py
+python app.py
 ```
 The server will start at `http://127.0.0.1:5000`.
 
