@@ -75,14 +75,23 @@ def improve_ai_endpoint():
     predicted_reply = generate_reply(client_sequence, formatted_history)
 
     # 2. Optimize prompt using comparison
-    updated_prompt = optimize_prompt(client_sequence, formatted_history, predicted_reply, consultant_reply)
+    result = optimize_prompt(client_sequence, formatted_history, predicted_reply, consultant_reply)
+    
+    # Handle the dict return or fallback
+    if isinstance(result, dict):
+        updated_prompt = result.get("prompt")
+        change_log = result.get("change_log")
+    else:
+        updated_prompt = result
+        change_log = None
     
     if not updated_prompt:
-         updated_prompt = get_system_prompt() # Fallback if optimization failed
+         updated_prompt = get_system_prompt() # Fallback
 
     return jsonify({
         "predictedReply": predicted_reply,
-        "updatedPrompt": updated_prompt
+        "updatedPrompt": updated_prompt,
+        "changeLog": change_log
     })
 
 @app.route('/improve-ai-manually', methods=['POST'])
@@ -95,13 +104,21 @@ def improve_ai_manually_endpoint():
     if not instructions:
         return jsonify({"error": "instructions are required"}), 400
 
-    updated_prompt = update_system_prompt_with_instructions(instructions)
+    result = update_system_prompt_with_instructions(instructions)
+    
+    if isinstance(result, dict):
+        updated_prompt = result.get("prompt")
+        change_log = result.get("change_log")
+    else:
+        updated_prompt = result
+        change_log = None
     
     if not updated_prompt:
         updated_prompt = get_system_prompt()
 
     return jsonify({
-        "updatedPrompt": updated_prompt
+        "updatedPrompt": updated_prompt,
+        "changeLog": change_log
     })
 
 @app.route('/rollback-system-prompt', methods=['POST'])

@@ -358,13 +358,13 @@ def optimize_prompt(client_seq_text, chat_history, ai_reply, consultant_reply):
         
         if new_prompt and new_prompt != current_prompt:
             save_new_prompt_version(new_text=new_prompt, reason=reason)
-            return new_prompt
+            return {"prompt": new_prompt, "change_log": reason}
         
-        return current_prompt
+        return {"prompt": current_prompt, "change_log": "No changes made."}
 
     except Exception as e:
         print(f"Error during prompt optimization: {e}")
-        return current_prompt
+        return {"prompt": current_prompt, "change_log": f"Error: {str(e)}"}
 
 def update_system_prompt_with_instructions(instructions):
     """
@@ -399,10 +399,10 @@ def update_system_prompt_with_instructions(instructions):
         
         if new_prompt and new_prompt != current_prompt:
             save_new_prompt_version(new_text=new_prompt, reason=reason)
-            return new_prompt
+            return {"prompt": new_prompt, "change_log": reason}
         
-        return current_prompt
+        return {"prompt": current_prompt, "change_log": "No changes made."}
         
     except Exception as e:
         print(f"Error manual prompt update: {e}")
-        return current_prompt
+        return {"prompt": current_prompt, "change_log": f"Error: {str(e)}"}
