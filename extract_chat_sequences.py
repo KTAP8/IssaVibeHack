@@ -83,6 +83,33 @@ Example: `{"reply": "Hello! I can certainly help with that..."}`
   * If a user asks about payment, encourage them to wait for the **free document review** in the app first.
   * If the user has technical document issues (e.g., address proof), suggest alternatives like driver's licenses or gov letters."""
 
+
+EDITOR_PROMPT = """You are an expert AI Prompt Engineer and Optimization System. Your goal is to refine the "System Instructions" for a customer support chatbot to make it behave exactly like a top-performing human consultant.
+
+You will be provided with the following inputs:
+1. **Current System Prompt:** The instructions currently governing the AI.
+2. **Conversation Context:** The client's message and chat history.
+3. **AI Reply (Flawed):** What the AI generated using the Current System Prompt.
+4. **Human Consultant Reply (Ideal):** What the expert human actually said.
+
+### Your Task
+Analyze the gap between the **AI Reply** and the **Human Consultant Reply**. Identify exactly what the AI did wrong or what it missed (e.g., tone, specific knowledge, policy enforcement, empathy, or sales tactics).
+
+Then, rewrite the **Current System Prompt** to fix these specific issues.
+
+### Optimization Guidelines
+- **Surgical Precision:** Do not rewrite the entire prompt if only one rule needs changing. Keep the structure stable.
+- **Rule Injection:** If the human mentioned a specific policy (e.g., "Laos for rejections") that the AI missed, add that explicitly to the "Knowledge Base" or "Directives" section of the prompt.
+- **Tone Adjustment:** If the AI was too robotic or too casual compared to the human, adjust the "Tone & Style" section.
+- **Fact Correction:** If the AI hallucinated or gave incorrect pricing/timelines, update the "Knowledge Base" with the correct data from the Human Reply.
+
+### Output Format
+You must return a **single JSON object** containing the full, updated text of the new system prompt.
+{
+  "prompt": "FULL_UPDATED_SYSTEM_PROMPT_HERE"
+}
+"""
+
 def get_system_prompt():
     if not SUPABASE_URL or not SUPABASE_KEY:
         print("Warning: SUPABASE_URL or SUPABASE_PUBLISHABLE_DEFAULT_KEY not found. Using fallback prompt.")
@@ -109,6 +136,27 @@ def get_system_prompt():
     except Exception as e:
         print(f"Error fetching from Supabase: {e}")
         return DEFAULT_SYSTEM_PROMPT
+
+def update_system_prompt(new_prompt):
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        print("Warning: Cannot update Supabase (missing credentials).")
+        return
+
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        # Check if a row exists
+        response = supabase.table("system_prompt").select("id").limit(1).execute()
+        
+        if response.data and len(response.data) > 0:
+            row_id = response.data[0]['id']
+            supabase.table("system_prompt").update({"prompt": new_prompt}).eq("id", row_id).execute()
+            print(f"Successfully updated system prompt in Supabase (ID: {row_id}).")
+        else:
+            supabase.table("system_prompt").insert({"prompt": new_prompt}).execute()
+            print("Successfully inserted new system prompt into Supabase.")
+
+    except Exception as e:
+        print(f"Error updating Supabase: {e}")
 
 SYSTEM_PROMPT = get_system_prompt()
 
@@ -175,7 +223,7 @@ def format_history_for_prompt(history):
         formatted.append({"role": role, "content": msg['text']})
     return formatted
 
-def generate_ai_reply(client_seq, history):
+def generate_ai_reply(client_seq, history, current_system_prompt):
     if not GEMINI_API_KEY:
         return "Error: API Key missing"
 
@@ -190,7 +238,7 @@ def generate_ai_reply(client_seq, history):
         "incoming_messages": incoming_messages
     }
     
-    full_prompt = f"{SYSTEM_PROMPT}\n\nInput:\n{json.dumps(prompt_input, indent=2)}"
+    full_prompt = f"{current_system_prompt}\n\nInput:\n{json.dumps(prompt_input, indent=2)}"
     
     try:
         response = model.generate_content(full_prompt)
@@ -200,42 +248,119 @@ def generate_ai_reply(client_seq, history):
         elif text_response.startswith("```"):
              text_response = text_response.strip("```")
              
-        response_json = json.loads(text_response)
-        return response_json.get("reply", "Error parsing reply")
+        # Try to parse as JSON first
+        try:
+            response_json = json.loads(text_response)
+            return response_json.get("reply", text_response) # Fallback to text_response if key missing
+        except json.JSONDecodeError:
+            return text_response # Fallback if not JSON at all
+
     except Exception as e:
         return f"Error generating reply: {e}"
 
+def optimize_prompt(current_prompt, client_seq, history, ai_reply, consultant_seq):
+    if not GEMINI_API_KEY:
+        print("Skipping optimization (API Key missing)")
+        return current_prompt
+
+    model = genai.GenerativeModel("gemini-flash-latest")
+
+    formatted_history = format_history_for_prompt(history)
+    incoming_texts = [msg['text'] for msg in client_seq]
+    consultant_texts = [msg['text'] for msg in consultant_seq]
+    human_reply_text = "\n".join(consultant_texts)
+    
+    context_str = json.dumps({
+        "client_messages": incoming_texts,
+        "chat_history": formatted_history
+    }, indent=2)
+
+    optimization_input = f"""
+1. **Current System Prompt:**
+{current_prompt}
+
+2. **Conversation Context:**
+{context_str}
+
+3. **AI Reply (Flawed):**
+{ai_reply}
+
+4. **Human Consultant Reply (Ideal):**
+{human_reply_text}
+"""
+
+    full_editor_prompt = f"{EDITOR_PROMPT}\n\n{optimization_input}"
+
+    try:
+        print("\n--- Optimizing Prompt... ---")
+        response = model.generate_content(full_editor_prompt)
+        text_resp = response.text
+        
+        # Cleanup markdown
+        if text_resp.startswith("```json"):
+            text_resp = text_resp.strip("```json").strip("```")
+        elif text_resp.startswith("```"):
+            text_resp = text_resp.strip("```")
+            
+        result = json.loads(text_resp)
+        new_prompt = result.get("prompt")
+        
+        if new_prompt and new_prompt != current_prompt:
+            print(">>> System Promise OPTIMIZED! <<<")
+            return new_prompt
+        else:
+            print("Optimization returned same prompt or invalid format.")
+            return current_prompt
+
+    except Exception as e:
+        print(f"Error during prompt optimization: {e}")
+        return current_prompt
+
 def main():
+    global SYSTEM_PROMPT
     json_file = 'conversations.json'
     extracted_data = extract_sequences(json_file)
     
     print(f"Total extracted pairs: {len(extracted_data)}\n")
     
-    # Process only first 1 sample
-    for idx, item in enumerate(extracted_data[:1]):
-        print(f"--- Sample {idx + 1} ---")
+    # Process first 3 samples for optimization
+    samples_to_process = 3
+    
+    for idx, item in enumerate(extracted_data[:samples_to_process]):
+        print(f"--- Sample {idx + 1}/{samples_to_process} ---")
         
-        print("CLIENT:")
-        client_texts = [m['text'] for m in item['client_sequence']]
-        print('\n'.join(client_texts))
-        print()
-
-        print("CHAT HISTORY:")
-        if not item['history']:
-            print("(No history)")
+        # 1. Generate AI Reply with CURRENT prompt
+        ai_reply = generate_ai_reply(item['client_sequence'], item['history'], SYSTEM_PROMPT)
+        
+        # 2. Get Human Reply
+        consultant_texts = [m['text'] for m in item['consultant_reply_sequence']]
+        human_reply = "\n".join(consultant_texts)
+        
+        print(f"AI Reply: {ai_reply[:100]}...") # Print first 100 chars
+        print(f"Human Reply: {human_reply[:100]}...")
+        
+        # 3. Optimize
+        new_prompt = optimize_prompt(SYSTEM_PROMPT, item['client_sequence'], item['history'], ai_reply, item['consultant_reply_sequence'])
+        
+        if new_prompt != SYSTEM_PROMPT:
+            SYSTEM_PROMPT = new_prompt
+            print("Updated SYSTEM_PROMPT in memory for next iteration.")
         else:
-            reversed_history = item['history'][::-1]
-            for msg in reversed_history:
-                role_label = "CONSULTANT" if msg['direction'] == 'out' else "CLIENT"
-                print(f"({role_label}) {msg['text']}")
-        print()
-        
-        ai_reply = generate_ai_reply(item['client_sequence'], item['history'])
-        print(f"AI REPLY: {ai_reply}")
-        
+            print("No changes to SYSTEM_PROMPT.")
+            
         print("\n" + "="*50 + "\n")
 
-    print("Stopped after 1 sample to avoid rate limits during verification.")
+    print("Finished optimization loop.")
+    
+    # Update Supabase
+    update_system_prompt(SYSTEM_PROMPT)
+    
+    # Verification Run on a 4th sample (if available)
+    if len(extracted_data) > samples_to_process:
+        print("\n--- Verification Sample ---")
+        item = extracted_data[samples_to_process]
+        ai_reply = generate_ai_reply(item['client_sequence'], item['history'], SYSTEM_PROMPT)
+        print(f"AI Reply (New Prompt): {ai_reply}")
 
 if __name__ == "__main__":
     main()
