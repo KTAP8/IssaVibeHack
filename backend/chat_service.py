@@ -16,7 +16,6 @@ SUPABASE_KEY = os.getenv("SUPABASE_PUBLISHABLE_DEFAULT_KEY")
 # Models
 PRIMARY_MODEL_NAME = "gemini-2.5-flash"
 FALLBACK_MODEL_NAME = "gemini-2.5-flash-lite"
-SECOND_FALLBACK_MODEL_NAME = "gemini-flash-latest"
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
@@ -311,17 +310,10 @@ def generate_with_fallback(full_prompt):
         try:
             model = genai.GenerativeModel(FALLBACK_MODEL_NAME)
             return model.generate_content(full_prompt)
-        except (ResourceExhausted, ServiceUnavailable, InternalServerError) as e2:
-            print(f"Fallback model {FALLBACK_MODEL_NAME} failed: {e2}. Falling back to {SECOND_FALLBACK_MODEL_NAME}.")
-            try:
-                model = genai.GenerativeModel(SECOND_FALLBACK_MODEL_NAME)
-                return model.generate_content(full_prompt)
-            except Exception as e3:
-                print(f"Second fallback model {SECOND_FALLBACK_MODEL_NAME} also failed: {e3}")
-                raise e3
         except Exception as e2:
-             print(f"Unexpected error with {FALLBACK_MODEL_NAME}: {e2}")
-             raise e2
+            print(f"Fallback model {FALLBACK_MODEL_NAME} also failed: {e2}")
+            # Reraise or return None? Let's return the exception or re-raise
+            raise e2
     except Exception as e:
         print(f"Unexpected error with {PRIMARY_MODEL_NAME}: {e}")
         raise e
