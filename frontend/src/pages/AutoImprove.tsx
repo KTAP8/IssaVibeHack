@@ -8,6 +8,7 @@ import { improveAi } from '@/services/api';
 import type { ChatMessage } from '@/services/api';
 import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import PageContainer from '@/components/PageContainer';
 
 const AutoImprove = () => {
   const [clientSequence, setClientSequence] = useState('');
@@ -38,6 +39,7 @@ const AutoImprove = () => {
   };
 
   return (
+    <PageContainer>
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Auto-Improve AI</h2>
@@ -129,6 +131,7 @@ const AutoImprove = () => {
         </div>
       </div>
     </div>
+    </PageContainer>
   );
 };
 export default AutoImprove;

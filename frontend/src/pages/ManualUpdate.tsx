@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { improveAiManually } from '@/services/api';
 import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import PageContainer from '@/components/PageContainer';
 
 const ManualUpdate = () => {
   const [instructions, setInstructions] = useState('');
@@ -30,6 +31,7 @@ const ManualUpdate = () => {
   };
 
   return (
+    <PageContainer>
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Manual Prompt Update</h2>
@@ -94,6 +96,7 @@ const ManualUpdate = () => {
         </div>
       </div>
     </div>
+    </PageContainer>
   );
 };
 
