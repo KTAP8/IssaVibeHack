@@ -16,7 +16,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_PUBLISHABLE_DEFAULT_KEY")
 # Models
 PRIMARY_MODEL_NAME = "gemini-2.5-flash"
 FALLBACK_MODEL_NAME = "gemini-2.5-flash-lite"
-SECOND_FALLBACK_MODEL_NAME = "gemini-1.5-flash"
+SECOND_FALLBACK_MODEL_NAME = "gemini-flash-latest"
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
