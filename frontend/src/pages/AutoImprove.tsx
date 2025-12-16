@@ -126,7 +126,7 @@ const AutoImprove = () => {
 
                   {response.changeLog && (
                     <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Change Log</Label>
+                        <Label className="text-xs text-muted-foreground">Reason For Update</Label>
                         <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded-md text-sm font-medium">
                             {response.changeLog}
                         </div>
@@ -135,7 +135,7 @@ const AutoImprove = () => {
 
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Updated System Prompt</Label>
-                    <ScrollArea className="h-[300px] w-full rounded-md border p-4 bg-muted/50 font-mono text-xs">
+                    <ScrollArea className="h-[600px] w-full rounded-md border p-4 bg-muted/50 font-mono text-xs">
                         {response.updatedPrompt}
                     </ScrollArea>
                   </div>
@@ -156,12 +156,6 @@ const AutoImprove = () => {
                       Undo (Rollback 1 Version)
                   </Button>
 
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-1">Full JSON Response</Label>
-                    <pre className="p-4 bg-muted rounded-md overflow-auto text-xs font-mono">
-                      {JSON.stringify(response, null, 2)}
-                    </pre>
-                  </div>
                 </div>
               )}
               {!loading && !response && !error && (

@@ -105,7 +105,7 @@ const ManualUpdate = () => {
                 <div className="space-y-4">
                   {response.changeLog && (
                     <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Change Log</Label>
+                        <Label className="text-xs text-muted-foreground">Reason For Update</Label>
                         <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded-md text-sm font-medium">
                             {response.changeLog}
                         </div>
