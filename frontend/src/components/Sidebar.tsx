@@ -39,8 +39,13 @@ const Sidebar = () => {
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/login');
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    } finally {
+      navigate('/login');
+    }
   };
 
   const handleDeleteSession = async (e: React.MouseEvent, id: string) => {
