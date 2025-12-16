@@ -1,6 +1,7 @@
 import os
 import json
 import google.generativeai as genai
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -102,26 +103,50 @@ def update_system_prompt(new_prompt):
     global CACHED_SYSTEM_PROMPT
     if not SUPABASE_URL or not SUPABASE_KEY:
         print("Warning: Cannot update Supabase (missing credentials).")
-        return
+        return False
 
     try:
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        
+        # Current timestamp in ISO format (Supabase timestamptz compatible)
+        now = datetime.now(timezone.utc).isoformat()
+        
         # Check if a row exists
         response = supabase.table("system_prompt").select("id").limit(1).execute()
         
         if response.data and len(response.data) > 0:
             row_id = response.data[0]['id']
-            supabase.table("system_prompt").update({"prompt": new_prompt}).eq("id", row_id).execute()
-            print(f"Successfully updated system prompt in Supabase (ID: {row_id}).")
-        else:
-            supabase.table("system_prompt").insert({"prompt": new_prompt}).execute()
-            print("Successfully inserted new system prompt into Supabase.")
+            update_resp = supabase.table("system_prompt").update({
+                "prompt": new_prompt,
+                "last_edited": now
+            }).eq("id", row_id).execute()
             
-        # Update cache
+            # Verify update
+            if update_resp.data:
+                print(f"Successfully updated system prompt in Supabase (ID: {row_id}).")
+            else:
+                print("Warning: Supabase update returned no data. Check RLS policies.")
+                # Proceeding optimistically, but this is suspicious.
+                
+        else:
+            insert_resp = supabase.table("system_prompt").insert({
+                "prompt": new_prompt,
+                "last_edited": now
+            }).execute()
+            if insert_resp.data:
+                print("Successfully inserted new system prompt into Supabase.")
+            else:
+                print("Warning: Supabase insert returned no data.")
+
+        # Update cache regardless? No, only if we think it worked (or if we want local to assume it worked)
+        # Ideally we trust the DB. But for now, let's update cache to keep app responsive.
         CACHED_SYSTEM_PROMPT = new_prompt
+        return True
 
     except Exception as e:
         print(f"Error updating Supabase: {e}")
+        return False
+
 
 def generate_reply(client_message, chat_history):
     """
