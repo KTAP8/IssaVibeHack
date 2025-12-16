@@ -23,7 +23,10 @@ const GenerateReply = () => {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // ... (useEffect for scroll)
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatHistory, loading]);
 
   // Load chat session if sessionId exists
   useEffect(() => {
