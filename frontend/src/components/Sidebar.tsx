@@ -72,7 +72,7 @@ const Sidebar = () => {
       <div className="p-4 border-b">
         <div className="flex items-center gap-2 mb-4 px-2">
           <Terminal className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight">Issa Chat & Optimizer</h1>
+          <h1 className="text-xl font-bold tracking-tight">Issa Vibe Chat</h1>
         </div>
         <Button onClick={handleNewChat} className="w-full justify-start" variant="outline">
           <Plus className="mr-2 h-4 w-4" />

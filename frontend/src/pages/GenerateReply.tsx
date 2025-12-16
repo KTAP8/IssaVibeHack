@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
+import { AnimatedText } from '@/components/ui/animated-underline-text-one';
 
 const GenerateReply = () => {
   const { sessionId } = useParams();
@@ -152,9 +153,9 @@ const GenerateReply = () => {
       {/* 1. Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
         {chatHistory.length === 0 && !sessionId ? (
-           <div className="h-full flex flex-col items-center justify-center text-center opacity-20 p-8">
+           <div className="h-full flex flex-col items-center justify-center text-center opacity-80 p-8">
               <Bot className="h-24 w-24 mb-4" />
-              <h2 className="text-2xl font-bold">How can I help you today?</h2>
+              <AnimatedText text="How can I help you today?" />
            </div>
         ) : (
            chatHistory.map((msg, index) => (
@@ -211,12 +212,12 @@ const GenerateReply = () => {
         {loading && (
              <div className="flex w-full items-start gap-4 justify-start animate-in fade-in slide-in-from-bottom-2">
                 <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-primary text-primary-foreground shadow">
-                    <Bot className="h-4 w-4" />
+                    <Bot className="h-4 w-4 border-primary" />
                 </div>
                 <div className="bg-muted border rounded-lg px-4 py-3 shadow-sm flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                    <span className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                    <span className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce"></span>
+                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></span>
                 </div>
              </div>
         )}
