@@ -1,7 +1,9 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from chat_service import generate_reply, optimize_prompt, update_system_prompt_with_instructions, get_system_prompt
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/')
 def hello_world():
