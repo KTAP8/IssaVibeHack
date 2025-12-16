@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import { AnimatedText } from '@/components/ui/animated-underline-text-one';
+import StarterTemplates from '@/components/StarterTemplates';
 
 const GenerateReply = () => {
   const { sessionId } = useParams();
@@ -71,13 +72,13 @@ const GenerateReply = () => {
      }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!clientSequence.trim() || loading) return;
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || loading) return;
 
-    const userMsg = clientSequence.trim();
-    setClientSequence('');
+    setClientSequence(''); // Clear input immediately
     setLoading(true);
+
+    const userMsg = text.trim();
 
     // Optimistic Update
     const optimisticUserMsg: ChatMessage = { role: 'user', message: userMsg };
@@ -98,10 +99,6 @@ const GenerateReply = () => {
         
         if (sessionError) throw sessionError;
         currentSessionId = sessionData.id;
-        // Don't navigate yet to avoid remount flickering, just set local ref if we could, 
-        // but here we might need to navigate to ensure URL is correct.
-        // Actually, let's just use the ID for requests. Navigation might cause a reload depending on Router setup.
-        // For smoother UX, we can replace history without full reload, but let's stick to navigate replace.
         navigate(`/generate-reply/${currentSessionId}`, { replace: true });
       }
 
@@ -117,7 +114,7 @@ const GenerateReply = () => {
       // 3. Call API
       const apiData = await generateReply({
         clientSequence: userMsg,
-        chatHistory: chatHistory // Context
+        chatHistory: chatHistory // Note: this uses closure chatHistory, which might be stale if multiple sends happen quickly, but for single user flow it's ok. Ideally pass updated history.
       });
 
       // 4. Persist Assistant Reply
@@ -135,12 +132,20 @@ const GenerateReply = () => {
 
     } catch (err: any) {
       console.error(err);
-      // Ideally show a toast error here
       const errorMsg: ChatMessage = { role: 'assistant', message: "Sorry, I encountered an error processing your request." };
       setChatHistory(prev => [...prev, errorMsg]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await sendMessage(clientSequence);
+  };
+
+  const handleTemplateSelect = (text: string) => {
+    sendMessage(text);
   };
 
   return (
@@ -159,6 +164,7 @@ const GenerateReply = () => {
            <div className="h-full flex flex-col items-center justify-center text-center opacity-80 p-8">
               <Bot className="h-24 w-24 mb-4" />
               <AnimatedText text="How can I help you today?" />
+              <StarterTemplates onSelect={handleTemplateSelect} />
            </div>
         ) : (
            chatHistory.map((msg, index) => (

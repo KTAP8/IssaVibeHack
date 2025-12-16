@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import ConfirmationModal from '@/components/ConfirmationModal';
 import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Edit, Terminal, Plus, LogOut, Trash2 } from 'lucide-react';
@@ -18,6 +19,9 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const { sessionId } = useParams();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -48,23 +52,31 @@ const Sidebar = () => {
     }
   };
 
-  const handleDeleteSession = async (e: React.MouseEvent, id: string) => {
+  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
+    setDeleteId(id);
+    setIsDeleteModalOpen(true);
+  };
 
-    if (!window.confirm('Are you sure you want to delete this chat?')) return;
+  const handleConfirmDelete = async () => {
+    if (!deleteId) return;
+    setDeleteLoading(true);
 
-    const { error } = await supabase.from('chat_sessions').delete().eq('id', id);
+    const { error } = await supabase.from('chat_sessions').delete().eq('id', deleteId);
     
     if (!error) {
-      setSessions((prev) => prev.filter((s) => s.id !== id));
-      if (sessionId === id) {
+      setSessions((prev) => prev.filter((s) => s.id !== deleteId));
+      if (sessionId === deleteId) {
         navigate('/generate-reply');
       }
+      setIsDeleteModalOpen(false);
+      setDeleteId(null);
     } else {
       console.error('Error deleting session:', error);
       alert('Failed to delete chat.');
     }
+    setDeleteLoading(false);
   };
 
   return (
@@ -137,7 +149,7 @@ const Sidebar = () => {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-                        onClick={(e) => handleDeleteSession(e, session.id)}
+                        onClick={(e) => handleDeleteClick(e, session.id)}
                         title="Delete Chat"
                     >
                         <Trash2 className="h-4 w-4" />
@@ -161,6 +173,16 @@ const Sidebar = () => {
             Sign Out
          </Button>
       </div>
+
+      <ConfirmationModal 
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Chat Session?"
+        description="This will permanently remove the chat history. This action cannot be undone."
+        confirmLabel="Delete Forever"
+        loading={deleteLoading}
+      />
     </div>
   );
 };
