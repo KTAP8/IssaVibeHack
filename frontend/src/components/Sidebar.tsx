@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Sparkles, Edit, Terminal, Plus, LogOut } from 'lucide-react';
+import { MessageSquare, Sparkles, Edit, Terminal, Plus, LogOut, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -41,6 +41,25 @@ const Sidebar = () => {
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
+  };
+
+  const handleDeleteSession = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!window.confirm('Are you sure you want to delete this chat?')) return;
+
+    const { error } = await supabase.from('chat_sessions').delete().eq('id', id);
+    
+    if (!error) {
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+      if (sessionId === id) {
+        navigate('/generate-reply');
+      }
+    } else {
+      console.error('Error deleting session:', error);
+      alert('Failed to delete chat.');
+    }
   };
 
   return (
@@ -107,17 +126,28 @@ const Sidebar = () => {
             </h2>
             <div className="flex flex-col gap-1">
               {sessions.map((session) => (
-                <NavLink key={session.id} to={`/generate-reply/${session.id}`}>
-                  {({ isActive }) => (
-                    <Button 
-                      variant={isActive ? "secondary" : "ghost"} 
-                      className={cn("w-full justify-start truncate", isActive && "bg-secondary")}
-                      title={session.title || 'Untitled Chat'}
+                <div key={session.id} className="group flex items-center gap-2 w-full pr-1">
+                    <NavLink to={`/generate-reply/${session.id}`} className="flex-1 min-w-0 overflow-hidden">
+                    {({ isActive }) => (
+                        <Button 
+                        variant={isActive ? "secondary" : "ghost"} 
+                        className={cn("w-full justify-start px-2", isActive && "bg-secondary")}
+                        title={session.title || 'Untitled Chat'}
+                        >
+                        <span className="truncate block w-full max-w-[140px] text-left">{session.title || 'Untitled Chat'}</span>
+                        </Button>
+                    )}
+                    </NavLink>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={(e) => handleDeleteSession(e, session.id)}
+                        title="Delete Chat"
                     >
-                      <span className="truncate">{session.title || 'Untitled Chat'}</span>
+                        <Trash2 className="h-4 w-4" />
                     </Button>
-                  )}
-                </NavLink>
+                </div>
               ))}
               {sessions.length === 0 && (
                 <div className="px-2 text-sm text-muted-foreground italic">No chats yet</div>

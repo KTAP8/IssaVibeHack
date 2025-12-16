@@ -18,15 +18,11 @@ const GenerateReply = () => {
 
   const [clientSequence, setClientSequence] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [sessionTitle, setSessionTitle] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [chatHistory, loading]);
+  // ... (useEffect for scroll)
 
   // Load chat session if sessionId exists
   useEffect(() => {
@@ -34,10 +30,21 @@ const GenerateReply = () => {
       loadSession(sessionId);
     } else {
       setChatHistory([]);
+      setSessionTitle(null);
     }
   }, [sessionId, user]);
 
   const loadSession = async (id: string) => {
+    const { data: sessionData } = await supabase
+      .from('chat_sessions')
+      .select('title')
+      .eq('id', id)
+      .single();
+    
+    if (sessionData) {
+      setSessionTitle(sessionData.title);
+    }
+
     const { data: messages } = await supabase
       .from('chat_messages')
       .select('*')
@@ -135,9 +142,16 @@ const GenerateReply = () => {
   return (
     <div className="flex flex-col h-full bg-background relative">
       
+      {/* Header */}
+      <div className="border-b p-4 flex items-center justify-between bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50 sticky top-0 z-10">
+        <h2 className="text-lg font-semibold tracking-tight truncate">
+            {sessionTitle || (sessionId ? 'Loading...' : 'New Chat')}
+        </h2>
+      </div>
+
       {/* 1. Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
-        {chatHistory.length === 0 ? (
+        {chatHistory.length === 0 && !sessionId ? (
            <div className="h-full flex flex-col items-center justify-center text-center opacity-20 p-8">
               <Bot className="h-24 w-24 mb-4" />
               <h2 className="text-2xl font-bold">How can I help you today?</h2>
