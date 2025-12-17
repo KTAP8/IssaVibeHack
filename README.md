@@ -1,8 +1,43 @@
 # IssaVibeHack
 
-A Flask-based AI Visa Consultant for the Destination Thailand Visa (DTV) paired with a modern React Frontend. This system uses Google Gemini and Supabase to maintain a self-improving system prompt with "Time Machine" version control.
+A Flask-based AI Visa Consultant for the Destination Thailand Visa (DTV) paired with a modern React Frontend. This system uses **Google Gemini** and **Supabase** to maintain a self-improving system prompt with "Time Machine" version control.
 
-## Setup
+## 🚀 Live Demo
+
+Access the live application here:
+
+- **Frontend App**: [issa-vibe-hack-frontend.vercel.app](https://issa-vibe-hack-frontend.vercel.app)
+- **Backend API**: [issavibehack-backend.onrender.com](https://issavibehack-backend.onrender.com)
+
+---
+
+## ✨ Features & How to Use
+
+### 🧬 Vibe Cloner
+Located in the sidebar, this tool allows you to instantly clone the personal of a human agent.
+1. **Paste Chat Logs**: Copy raw text or JSON chat logs from a top-performing agent.
+2. **Clone**: Click "Clone Persona". The AI analyzes tone, emoji usage, and structure.
+3. **Review**: The system prompt's "Tone & Style" section is automatically updated.
+
+### 🧠 Auto-Improve AI
+Train the AI using real-world examples.
+1. **Input Scenario**: Enter the client's message.
+2. **Provide Solution**: Enter the *ideal* response a human expert would give.
+3. **Improve**: The AI compares its initial prediction with your ideal answer and updates its system prompt rules to match your logic.
+
+### 🛠️ Manual Prompt Update
+Directly steer the AI's behavior.
+1. **Instruct**: Type instructions like "Be more empathetic" or "Always mention the 500k THB requirement".
+2. **Update**: The system prompt is modified to incorporate your directive.
+
+### 💬 AI Playground (Generate Reply)
+Test the current AI persona.
+1. **Chat**: Simulate a conversation with a client.
+2. **Verify**: Check if the responses match the style and logic you've trained it on.
+
+---
+
+## 💻 Developer Setup
 
 ### 1. Prerequisites
 - Python 3.11+
@@ -49,25 +84,7 @@ A Flask-based AI Visa Consultant for the Destination Thailand Visa (DTV) paired 
 
 ---
 
-## Running the Application
-
-### Backend
-Start the Flask server from `backend/`:
-```bash
-python app.py
-```
-Runs at `http://127.0.0.1:5000`.
-
-### Frontend
-Start the Vite dev server from `frontend/`:
-```bash
-npm run dev
-```
-Runs at `http://localhost:5173`.
-
----
-
-## API Reference
+## 🔌 API Reference
 
 ### 1. Generate AI Reply
 **Endpoint:** `POST /generate-reply`
@@ -96,7 +113,22 @@ Updates the system prompt based on user instructions.
 }
 ```
 
-### 4. Rollback System Prompt (Time Machine)
+### 4. Clone Vibe (Persona Extraction)
+**Endpoint:** `POST /clone-vibe`
+Analyzes chat logs to extract and apply a persona to the system prompt.
+**Body:**
+```json
+{ "chatLogs": "Agent: Hey! ... Client: Hi..." }
+```
+**Returns:**
+```json
+{
+  "updatedPrompt": "...",
+  "changeLog": "Vibe Clone Update: ..."
+}
+```
+
+### 5. Rollback System Prompt (Time Machine)
 **Endpoint:** `POST /rollback-system-prompt`
 Reverts the active prompt to a previous version.
 **Body:**
