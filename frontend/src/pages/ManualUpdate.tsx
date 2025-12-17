@@ -9,6 +9,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import PageContainer from '@/components/PageContainer';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const ManualUpdate = () => {
   const [instructions, setInstructions] = useState('');
@@ -156,8 +158,12 @@ const ManualUpdate = () => {
 
                    <div className="space-y-2 flex-1 min-h-0 flex flex-col">
                     <Label className="text-xs text-muted-foreground flex-none">New System Prompt</Label>
-                    <ScrollArea className="flex-1 w-full rounded-md border p-4 bg-muted/50 font-mono text-xs">
-                        {response.updatedPrompt}
+                    <ScrollArea className="flex-1 w-full rounded-md border p-4 bg-muted/50 text-xs">
+                         <div className="prose prose-xs dark:prose-invert max-w-none font-mono">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {response.updatedPrompt}
+                            </ReactMarkdown>
+                        </div>
                     </ScrollArea>
                   </div>
                 </div>

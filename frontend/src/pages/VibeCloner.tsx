@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import PageContainer from '@/components/PageContainer';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Wand2, History } from 'lucide-react';
+import { Loader2, Wand2, History, ChevronRight, ChevronLeft, PanelLeftOpen } from 'lucide-react';
 import { ModeSelector } from '@/components/ui/mode-selector';
 import type { InputMode } from '@/components/ui/mode-selector';
 import { cloneVibe, rollbackSystemPrompt } from '@/services/api';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { cn } from '@/lib/utils';
 
 const VibeCloner: React.FC = () => {
   const [chatLogs, setChatLogs] = useState('');
@@ -15,6 +18,7 @@ const VibeCloner: React.FC = () => {
   const [changeLog, setChangeLog] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rollbackMessage, setRollbackMessage] = useState<string | null>(null);
+  const [isInputCollapsed, setIsInputCollapsed] = useState(false);
 
   const placeholder = inputMode === 'text' 
     ? `[10:05] Agent: Hey there! 👋 How can I help you today?
@@ -102,48 +106,80 @@ const VibeCloner: React.FC = () => {
         <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-0">
           
           {/* Left Column: Input */}
-          <div className="w-full md:w-1/2 flex flex-col gap-4">
-             <ModeSelector currentMode={inputMode} onModeChange={setInputMode} />
-             
-             <div className="flex-1 flex flex-col gap-2 min-h-0">
-                <label className="block text-sm font-medium text-foreground ml-1">
-                    Paste {inputMode === 'text' ? 'Raw Chat Text' : 'JSON Data'}
-                </label>
-                <Textarea
-                    className="flex-1 w-full resize-none text-sm leading-relaxed p-4 bg-muted/30"
-                    placeholder={placeholder}
-                    value={chatLogs}
-                    onChange={(e) => setChatLogs(e.target.value)}
-                />
+          {/* Left Column: Input */}
+          <div 
+             className={cn(
+                 "transition-all duration-300 ease-in-out relative flex flex-col",
+                 isInputCollapsed ? "w-[60px]" : "w-full md:w-1/2"
+             )}
+          >
+             <Button
+                variant="ghost"
+                size="icon"
+                className="absolute -right-3 top-4 z-10 h-8 w-8 rounded-full border bg-background shadow-md"
+                onClick={() => setIsInputCollapsed(!isInputCollapsed)}
+                title={isInputCollapsed ? "Expand Input" : "Collapse Input"}
+             >
+                {isInputCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+             </Button>
+
+             <div className={cn(
+                  "transition-all duration-300 overflow-hidden h-full flex flex-col gap-4",
+                  isInputCollapsed ? "opacity-0 invisible w-0" : "opacity-100 visible w-full"
+             )}>
+                 <ModeSelector currentMode={inputMode} onModeChange={setInputMode} />
+                 
+                 <div className="flex-1 flex flex-col gap-2 min-h-0">
+                    <label className="block text-sm font-medium text-foreground ml-1">
+                        Paste {inputMode === 'text' ? 'Raw Chat Text' : 'JSON Data'}
+                    </label>
+                    <Textarea
+                        className="flex-1 w-full resize-none text-sm leading-relaxed p-4 bg-muted/30"
+                        placeholder={placeholder}
+                        value={chatLogs}
+                        onChange={(e) => setChatLogs(e.target.value)}
+                    />
+                 </div>
+
+                 <div className="flex items-center justify-end">
+                     <Button
+                      onClick={handleClone}
+                      disabled={isLoading || !chatLogs.trim()}
+                      className="w-full sm:w-auto"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing Vibe...
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="mr-2 h-4 w-4" /> Clone Persona
+                        </>
+                      )}
+                    </Button>
+                 </div>
+                 
+                 {error && (
+                  <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm animate-in fade-in slide-in-from-top-2">
+                    ⚠️ {error}
+                  </div>
+                )}
              </div>
 
-             <div className="flex items-center justify-end">
-                 <Button
-                  onClick={handleClone}
-                  disabled={isLoading || !chatLogs.trim()}
-                  className="w-full sm:w-auto"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing Vibe...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="mr-2 h-4 w-4" /> Clone Persona
-                    </>
-                  )}
-                </Button>
-             </div>
-             
-             {error && (
-              <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm animate-in fade-in slide-in-from-top-2">
-                ⚠️ {error}
-              </div>
-            )}
+             {/* Collapsed Placeholder Icon */}
+             {isInputCollapsed && (
+                <div className="flex flex-col items-center pt-8 gap-4 opacity-50">
+                   <PanelLeftOpen className="h-6 w-6 text-muted-foreground cursor-pointer" onClick={() => setIsInputCollapsed(false)} />
+                   <span className="text-xs text-muted-foreground font-mono rotate-90 whitespace-nowrap mt-8">INPUT DATA</span>
+                </div>
+             )}
           </div>
 
           {/* Right Column: Results */}
-          <div className="w-full md:w-1/2 flex flex-col h-full bg-muted/10 rounded-xl border border-border/50 overflow-hidden">
+          <div className={cn(
+              "transition-all duration-300 h-full bg-muted/10 rounded-xl border border-border/50 overflow-hidden flex flex-col",
+              isInputCollapsed ? "w-full flex-1" : "w-full md:w-1/2"
+          )}>
              {(updatedPrompt || rollbackMessage) ? (
                 <div className="flex flex-col h-full">
                     <div className="flex items-center justify-between p-4 border-b bg-muted/20">
@@ -177,11 +213,17 @@ const VibeCloner: React.FC = () => {
                             </div>
                         )}
                         
-                        <div className="bg-muted border rounded-lg p-4 relative group">
-                            <div className="absolute top-4 right-4 text-xs text-muted-foreground font-mono">SYSTEM_PROMPT.md</div>
-                            <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-mono">
-                                {updatedPrompt}
-                            </pre>
+                        <div className="bg-muted border rounded-lg relative group overflow-hidden">
+                            <div className="flex items-center justify-end px-4 py-2 border-b bg-muted/50">
+                                <span className="text-xs text-muted-foreground font-mono">SYSTEM_PROMPT.md</span>
+                            </div>
+                            <div className="p-4 h-[calc(100%-40px)] overflow-y-auto custom-scrollbar">
+                                <div className="prose prose-xs dark:prose-invert max-w-none font-mono">
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                         {updatedPrompt || ''}
+                                    </ReactMarkdown>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

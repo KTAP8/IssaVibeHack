@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+import json
 from flask_cors import CORS
 from chat_service import generate_reply, optimize_prompt, update_system_prompt_with_instructions, get_system_prompt, rollback_prompt, clone_vibe
 
