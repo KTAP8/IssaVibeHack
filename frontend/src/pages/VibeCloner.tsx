@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Wand2, History } from 'lucide-react';
 import { ModeSelector } from '@/components/ui/mode-selector';
 import type { InputMode } from '@/components/ui/mode-selector';
+import { cloneVibe, rollbackSystemPrompt } from '@/services/api';
 
 const VibeCloner: React.FC = () => {
   const [chatLogs, setChatLogs] = useState('');
@@ -58,17 +59,7 @@ const VibeCloner: React.FC = () => {
           // For now, let's treat it as string as requested.
       }
 
-      const response = await fetch('http://localhost:5000/clone-vibe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatLogs: payload }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to clone vibe.');
-      }
+      const data = await cloneVibe({ chatLogs: payload });
 
       setUpdatedPrompt(data.updatedPrompt);
       setChangeLog(data.changeLog || 'No specific changes noted, but prompt updated.');
@@ -85,17 +76,7 @@ const VibeCloner: React.FC = () => {
     setError(null);
 
     try {
-        const response = await fetch('http://localhost:5000/rollback-system-prompt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ steps: 1 })
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.error || 'Rollback failed');
-        }
+        const data = await rollbackSystemPrompt(1);
 
         setUpdatedPrompt(data.activePrompt);
         setChangeLog(null);

@@ -69,4 +69,18 @@ export const rollbackSystemPrompt = async (steps: number = 1) => {
     return response.data;
 };
 
+export interface CloneVibeRequest {
+  chatLogs: string | any;
+}
+
+export interface CloneVibeResponse {
+  updatedPrompt: string;
+  changeLog?: string;
+}
+
+export const cloneVibe = async (data: CloneVibeRequest) => {
+  const response = await api.post<CloneVibeResponse>('/clone-vibe', data);
+  return response.data;
+};
+
 export default api;
