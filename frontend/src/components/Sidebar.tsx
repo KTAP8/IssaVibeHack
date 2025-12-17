@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Edit, Terminal, Plus, LogOut, Trash2 } from 'lucide-react';
+import { Sparkles, Edit, Terminal, Plus, LogOut, Trash2, Dna } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -121,6 +121,19 @@ const Sidebar = () => {
                     >
                       <Edit className="mr-2 h-4 w-4" />
                       Manual Update
+                    </Button>
+                  )}
+                </NavLink>
+
+
+                <NavLink to="/clone-vibe">
+                  {({ isActive }) => (
+                    <Button 
+                      variant={isActive ? "secondary" : "ghost"} 
+                      className={cn("w-full justify-start", isActive && "bg-secondary")}
+                    >
+                      <Dna className="mr-2 h-4 w-4" />
+                      Vibe Cloner
                     </Button>
                   )}
                 </NavLink>

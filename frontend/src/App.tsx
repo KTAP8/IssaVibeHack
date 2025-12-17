@@ -3,6 +3,8 @@ import Layout from '@/components/Layout';
 import GenerateReply from '@/pages/GenerateReply';
 import AutoImprove from '@/pages/AutoImprove';
 import ManualUpdate from '@/pages/ManualUpdate';
+
+import VibeCloner from '@/pages/VibeCloner';
 import Login from '@/pages/Login';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
@@ -24,7 +26,9 @@ function App() {
           <Route path="/" element={<Navigate to="/generate-reply" replace />} />
           <Route path="/generate-reply/:sessionId?" element={<GenerateReply />} />
           <Route path="/improve-ai" element={<AutoImprove />} />
+
           <Route path="/improve-ai-manually" element={<ManualUpdate />} />
+          <Route path="/clone-vibe" element={<VibeCloner />} />
         </Route>
       </Routes>
     </AuthProvider>

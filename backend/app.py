@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from chat_service import generate_reply, optimize_prompt, update_system_prompt_with_instructions, get_system_prompt, rollback_prompt
+from chat_service import generate_reply, optimize_prompt, update_system_prompt_with_instructions, get_system_prompt, rollback_prompt, clone_vibe
 
 app = Flask(__name__)
 CORS(app)
@@ -139,6 +139,37 @@ def rollback_endpoint():
         })
     else:
         return jsonify({"error": "Rollback failed. Check server logs."}), 500
+
+@app.route('/clone-vibe', methods=['POST'])
+def clone_vibe_endpoint():
+    data = request.json
+    if not data:
+        return jsonify({"error": "Invalid JSON body"}), 400
+
+    chat_logs = data.get('chatLogs')
+    if not chat_logs:
+        return jsonify({"error": "chatLogs are required"}), 400
+
+    # Ensure raw text string if it's a list or something else
+    if isinstance(chat_logs, (list, dict)):
+        chat_logs = json.dumps(chat_logs, indent=2)
+
+    result = clone_vibe(chat_logs)
+    
+    if isinstance(result, dict):
+        updated_prompt = result.get("prompt")
+        change_log = result.get("change_log")
+    else:
+        updated_prompt = result
+        change_log = None
+    
+    if not updated_prompt:
+        updated_prompt = get_system_prompt()
+
+    return jsonify({
+        "updatedPrompt": updated_prompt,
+        "changeLog": change_log
+    })
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True, host='0.0.0.0')

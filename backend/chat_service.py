@@ -94,6 +94,26 @@ Return a **single JSON object** (no markdown formatting outside the JSON string)
 }
 """
 
+VIBE_ANALYST_PROMPT = """You are a Linguistic Profiler. Analyze the following chat logs from a human agent. Extract specific style rules: usage of emojis (frequency and specific types), sentence length (short vs long), formality level, greeting patterns, and how they handle friction. Return a rewritten **Tone & Style** section for a System Prompt that captures this exact persona.
+
+### INPUTS
+1. **Current System Prompt:** The base instructions.
+2. **Chat Logs:** Raw logs or JSON of a human agent's conversation.
+
+### YOUR PROCESS
+1. **Analyze:** deep dive into the chat logs to understand the "Vibe".
+2. **Extract:** key stylistic elements (Emoji usage, phrasing, sentence structure).
+3. **Rewrite:** Create a NEW `**Tone & Style**` section that embodies this persona.
+4. **Integrate:** Replace the existing `**Tone & Style**` section in the Current System Prompt with your new one. Keep the rest of the prompt exactly the same.
+
+### OUTPUT FORMAT
+Return a **single JSON object** (no markdown formatting outside the JSON string):
+{
+  "prompt": "THE_FULL_UPDATED_SYSTEM_PROMPT",
+  "change_log": "Vibe Clone Update: <brief summary of the new persona>"
+}
+"""
+
 # Global variable to cache the prompt (optional, but good for performance)
 CACHED_SYSTEM_PROMPT = None
 
@@ -442,4 +462,45 @@ def update_system_prompt_with_instructions(instructions):
         
     except Exception as e:
         print(f"Error manual prompt update: {e}")
+        return {"prompt": current_prompt, "change_log": f"Error: {str(e)}"}
+
+def clone_vibe(chat_log_text):
+    """
+    Analyzes chat logs to extract usage patterns and tone, then updates the system prompt.
+    """
+    if not GEMINI_API_KEY:
+        return None
+
+    current_prompt = get_system_prompt()
+    
+    input_text = f"""
+1. **Current System Prompt:**
+{current_prompt}
+
+2. **Chat Logs:**
+{chat_log_text}
+"""
+    
+    full_prompt = f"{VIBE_ANALYST_PROMPT}\n\n{input_text}"
+    
+    try:
+        response = generate_with_fallback(full_prompt)
+        text_resp = response.text
+        
+        result = extract_json(text_resp)
+        if not result:
+             print(f"Failed to parse JSON from AI response: {text_resp[:100]}...")
+             return {"prompt": current_prompt, "change_log": "Failed to parse AI response"}
+             
+        new_prompt = result.get("prompt")
+        change_log = result.get("change_log", "Vibe Clone Update: Mimicked persona from uploaded chat logs.")
+        
+        if new_prompt and new_prompt != current_prompt:
+            save_new_prompt_version(new_text=new_prompt, reason=change_log)
+            return {"prompt": new_prompt, "change_log": change_log}
+        
+        return {"prompt": current_prompt, "change_log": "No changes made."}
+        
+    except Exception as e:
+        print(f"Error executing Vibe Clone: {e}")
         return {"prompt": current_prompt, "change_log": f"Error: {str(e)}"}

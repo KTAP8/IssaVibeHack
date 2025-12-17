@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import { AnimatedText } from '@/components/ui/animated-underline-text-one';
 import StarterTemplates from '@/components/StarterTemplates';
+import { motion } from 'framer-motion';
 
 const GenerateReply = () => {
   const { sessionId } = useParams();
@@ -149,7 +150,12 @@ const GenerateReply = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background relative">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="flex flex-col h-full bg-background relative"
+    >
       
       {/* Header */}
       <div className="border-b p-4 flex items-center justify-between bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50 sticky top-0 z-10">
@@ -264,7 +270,7 @@ const GenerateReply = () => {
             AI can make mistakes. Check important info.
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
