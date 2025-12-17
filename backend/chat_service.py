@@ -317,10 +317,13 @@ def extract_json(text_response):
     # If all else fails, return None or raw text wrapper
     return None
 
+SECOND_FALLBACK_MODEL_NAME = "gemma-3-27b-it"
+
 def generate_with_fallback(full_prompt):
     """
     Attempts to generate content with the primary model.
     If it fails due to rate limits or errors, falls back to the lite model.
+    If that also fails, falls back to Gemma 3 27B.
     """
     try:
         model = genai.GenerativeModel(PRIMARY_MODEL_NAME)
@@ -330,10 +333,17 @@ def generate_with_fallback(full_prompt):
         try:
             model = genai.GenerativeModel(FALLBACK_MODEL_NAME)
             return model.generate_content(full_prompt)
+        except (ResourceExhausted, ServiceUnavailable, InternalServerError) as e2:
+            print(f"Fallback model {FALLBACK_MODEL_NAME} failed: {e2}. Falling back to {SECOND_FALLBACK_MODEL_NAME}.")
+            try:
+                model = genai.GenerativeModel(SECOND_FALLBACK_MODEL_NAME)
+                return model.generate_content(full_prompt)
+            except Exception as e3:
+                print(f"Second fallback model {SECOND_FALLBACK_MODEL_NAME} also failed: {e3}")
+                raise e3
         except Exception as e2:
-            print(f"Fallback model {FALLBACK_MODEL_NAME} also failed: {e2}")
-            # Reraise or return None? Let's return the exception or re-raise
-            raise e2
+             print(f"Fallback model {FALLBACK_MODEL_NAME} failed with unexpected error: {e2}")
+             raise e2
     except Exception as e:
         print(f"Unexpected error with {PRIMARY_MODEL_NAME}: {e}")
         raise e
